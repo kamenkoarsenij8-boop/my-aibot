@@ -5,14 +5,17 @@ from openai import OpenAI
 
 # ================== НАСТРОЙКИ ==================
 
-BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")   # токен лежит в переменных окружения Render
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")   # токен бота — только в переменных окружения Render
 
-API_KEY  = os.getenv("AI_API_KEY")            # ключ от твоего AI-API
-BASE_URL = "https://api.openai.com/v1"        # адрес API (поменяй, если провайдер другой)
-MODEL    = "gpt-4o-mini"                      # модель с поддержкой картинок
+# Pollinations: бесплатный API без ключей.
+# OpenAI-клиенту нужен какой-то api_key, поэтому ставим заглушку.
+ai = OpenAI(
+    api_key="not-needed",
+    base_url="https://text.pollinations.ai/openai"
+)
+MODEL = "openai"   # у Pollinations модель так и называется; vision (картинки) поддерживается
 
 tg = telebot.TeleBot(BOT_TOKEN)
-ai = OpenAI(api_key=API_KEY, base_url=BASE_URL)
 
 SYSTEM_PROMPT = (
     "Ты — дружелюбный и живой помощник. Отвечай на том языке, "
