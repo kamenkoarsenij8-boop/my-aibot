@@ -7,23 +7,30 @@ from openai import OpenAI
 
 BOT_TOKEN = os.getenv("9228329417:AAHRBGMySQ8sc0V8V2bIYbr3Z2DHRqadnKQ")
 
-# ↓↓↓ ЗАМЕНИ ЭТИ ТРИ СТРОКИ ПОД СВОЙ API ↓↓↓
-API_KEY   = os.getenv("AI_API_KEY")        # ключ от твоего API (добавишь на Render)
-BASE_URL  = "https://api.openai.com/v1"    # адрес твоего API (если не OpenAI — свой)
-MODEL     = "gpt-4o-mini"                  # модель с поддержкой картинок
-# ↑↑↑ если твой API не видит картинки, скажи — подберём модель ↑↑↑
+API_KEY  = os.getenv("AI_API_KEY")        # ключ от твоего AI-API
+BASE_URL = "https://api.openai.com/v1"    # адрес API (поменяй, если провайдер другой)
+MODEL    = "gpt-4o-mini"                  # модель с поддержкой картинок
 
-bot = OpenAI(api_key=API_KEY, base_url=BASE_URL)
 tg = telebot.TeleBot(BOT_TOKEN)
+ai = OpenAI(api_key=API_KEY, base_url=BASE_URL)
 
 SYSTEM_PROMPT = (
-    "Ты — дружелюбный помощник. Отвечай кратко и по делу, "
-    "на том языке, на котором пишет пользователь."
+    "Ты — дружелюбный и живой помощник. Отвечай на том языке, "
+    "на котором пишет пользователь.\n"
+    "Правила твоих ответов:\n"
+    "1. Объясняй подробно и понятно: без слов, которые надо гуглить, "
+    "и без пропусков логики. Если тема сложная — разбивай её на шаги.\n"
+    "2. Используй примеры и аналогии из обычной жизни, чтобы было ясно.\n"
+    "3. Добавляй эмодзи, чтобы текст был живым и легко читался — "
+    "но по делу, без спама смайликами в каждом слове.\n"
+    "4. Не будь сухим и канцелярским: отвечай как хороший знакомый, "
+    "который реально хочет, чтобы ты понял.\n"
+    "5. В конце можно задать короткий уточняющий вопрос или предложить "
+    "разобрать тему глубже, если это уместно."
 )
 
-# ================== ПАМЯТЬ ==================
+# ================== ПАМЯТЬ ДИАЛОГОВ ==================
 
-# Память диалогов: {chat_id: [сообщения]}
 history = {}
 
 def get_history(chat_id):
@@ -32,11 +39,9 @@ def get_history(chat_id):
     return history[chat_id]
 
 def trim_history(chat_id, limit=20):
-    # храним последние 20 сообщений, чтобы не раздувать запросы
     msgs = history[chat_id]
-    system = msgs[0]
     if len(msgs) > limit + 1:
-        history[chat_id] = [system] + msgs[-limit:]
+        history[chat_id] = [msgs[0]] + msgs[-limit:]
 
 # ================== ЗАПРОС К НЕЙРОСЕТИ ==================
 
@@ -44,19 +49,21 @@ def ask_ai(chat_id, user_text, image_b64=None):
     msgs = get_history(chat_id)
 
     if image_b64:
-        content = [
-            {"type": "text", "text": user_text},
-            {"type": "image_url", "image_url": {
-                "url": f"data:image/jpeg;base64,{image_b64}"
-            }},
-        ]
-        msgs.append({"role": "user", "content": content})
+        msgs.append({
+            "role": "user",
+            "content": [
+                {"type": "text", "text": user_text},
+                {"type": "image_url", "image_url": {
+                    "url": f"data:image/jpeg;base64,{image_b64}"
+                }},
+            ],
+        })
     else:
         msgs.append({"role": "user", "content": user_text})
 
     trim_history(chat_id)
 
-    response = bot.chat.completions.create(
+    response = ai.chat.completions.create(
         model=MODEL,
         messages=msgs,
         max_tokens=1000,
@@ -69,11 +76,12 @@ def ask_ai(chat_id, user_text, image_b64=None):
 
 @tg.message_handler(commands=["start"])
 def handle_start(message):
-    history.pop(message.chat.id, None)  # сбрасываем память на /start
+    history.pop(message.chat.id, None)
     tg.reply_to(
         message,
-        "Привет! Я бот с памятью — помню контекст диалога.\n"
-        "Напиши вопрос или пришли фото с подписью, и я отвечу 📸"
+        "Привет! 👋 Я бот с памятью — помню контекст диалога.\n"
+        "Напиши вопрос или пришли фото с подписью 📸\n"
+        "Объясняю подробно и понятно 🙂"
     )
 
 @tg.message_handler(content_types=["text"])
@@ -88,7 +96,6 @@ def handle_text(message):
 @tg.message_handler(content_types=["photo"])
 def handle_photo(message):
     try:
-        # скачиваем фото (последний элемент — самый большой размер)
         file_info = tg.get_file(message.photo[-1].file_id)
         downloaded = tg.download_file(file_info.file_path)
 
@@ -101,7 +108,7 @@ def handle_photo(message):
         answer = ask_ai(message.chat.id, caption, image_b64=img_b64)
         tg.reply_to(message, answer)
     except Exception as e:
-        tg.reply_to(message, f"Не смог разобрать фото: {e}")
+        tg.reply_to(message, "Не смог разобрать фото 😔")
         print("PHOTO ERROR:", e)
 
 # ================== ЗАПУСК ==================
