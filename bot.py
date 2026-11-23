@@ -1,12 +1,14 @@
 import os
 import base64
 import requests
+import threading
 import telebot
+from http.server import HTTPServer, BaseHTTPRequestHandler
 from openai import OpenAI
 
 # ================== НАСТРОЙКИ ==================
 
-BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")   # токен бота — из переменных окружения Render
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")   # токен берём из переменных окружения Render
 
 tg = telebot.TeleBot(BOT_TOKEN)
 
@@ -19,14 +21,14 @@ ai = OpenAI(
     api_key="not-needed",
     base_url="https://text.pollinations.ai/openai"
 )
-MODEL = "openai"   # у Pollinations модель так и называется; поддерживает и текст, и картинки
+MODEL = "openai"
 
 SYSTEM_PROMPT = (
     "Ты — дружелюбный и живой помощник. Отвечай на том языке, "
     "на котором пишет пользователь.\n"
     "Правила твоих ответов:\n"
     "1. Объясняй подробно и понятно: без слов, которые надо гуглить, "
-    "и без пропусков логики. Если тема сложная — разбивай её на шаги.\n"
+    "и без пропусков логики. Если тема сложная — разбивай на шаги.\n"
     "2. Используй примеры и аналогии из обычной жизни, чтобы было ясно.\n"
     "3. Добавляй эмодзи, чтобы текст был живым и легко читался — "
     "но по делу, без спама смайликами в каждом слове.\n"
@@ -117,6 +119,20 @@ def handle_photo(message):
     except Exception as e:
         tg.reply_to(message, "Не смог разобрать фото 😔")
         print("PHOTO ERROR:", e)
+
+# ================== ФИКТИВНЫЙ HTTP-СЕРВЕР ДЛЯ RENDER ==================
+# Render (Web Service) требует открытый порт — иначе убивает процесс по таймауту.
+# Открываем порт на всё время жизни бота — больше ничего не нужно.
+
+def run_dummy_server():
+    port = int(os.environ.get("PORT", 10000))
+    handler = BaseHTTPRequestHandler
+    handler.do_GET = lambda self: (self.send_response(200),
+                                   self.end_headers(),
+                                   self.wfile.write(b"bot is alive"))
+    HTTPServer(("0.0.0.0", port), handler).serve_forever()
+
+threading.Thread(target=run_dummy_server, daemon=True).start()
 
 # ================== ЗАПУСК ==================
 
