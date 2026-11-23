@@ -5,11 +5,11 @@ from openai import OpenAI
 
 # ================== НАСТРОЙКИ ==================
 
-BOT_TOKEN = os.getenv("9228329417:AAHRBGMySQ8sc0V8V2bIYbr3Z2DHRqadnKQ")
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")   # токен лежит в переменных окружения Render
 
-API_KEY  = os.getenv("AI_API_KEY")        # ключ от твоего AI-API
-BASE_URL = "https://api.openai.com/v1"    # адрес API (поменяй, если провайдер другой)
-MODEL    = "gpt-4o-mini"                  # модель с поддержкой картинок
+API_KEY  = os.getenv("AI_API_KEY")            # ключ от твоего AI-API
+BASE_URL = "https://api.openai.com/v1"        # адрес API (поменяй, если провайдер другой)
+MODEL    = "gpt-4o-mini"                      # модель с поддержкой картинок
 
 tg = telebot.TeleBot(BOT_TOKEN)
 ai = OpenAI(api_key=API_KEY, base_url=BASE_URL)
