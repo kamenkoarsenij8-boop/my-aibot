@@ -1,5 +1,4 @@
 import os
-import base64
 import requests
 import threading
 import telebot
@@ -8,15 +7,14 @@ from openai import OpenAI
 
 # ================== НАСТРОЙКИ ==================
 
-BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")   # токен берём из переменных окружения Render
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
 tg = telebot.TeleBot(BOT_TOKEN)
 
 # Принудительно удаляем вебхук, чтобы не было конфликта 409
 requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook")
 
-# Pollinations: бесплатный API без ключей.
-# OpenAI-клиенту нужен какой-то api_key, поэтому ставим заглушку.
+# Pollinations: бесплатный API без ключей
 ai = OpenAI(
     api_key="not-needed",
     base_url="https://text.pollinations.ai/openai"
@@ -26,16 +24,8 @@ MODEL = "openai"
 SYSTEM_PROMPT = (
     "Ты — дружелюбный и живой помощник. Отвечай на том языке, "
     "на котором пишет пользователь.\n"
-    "Правила твоих ответов:\n"
-    "1. Объясняй подробно и понятно: без слов, которые надо гуглить, "
-    "и без пропусков логики. Если тема сложная — разбивай на шаги.\n"
-    "2. Используй примеры и аналогии из обычной жизни, чтобы было ясно.\n"
-    "3. Добавляй эмодзи, чтобы текст был живым и легко читался — "
-    "но по делу, без спама смайликами в каждом слове.\n"
-    "4. Не будь сухим и канцелярским: отвечай как хороший знакомый, "
-    "который реально хочет, чтобы ты понял.\n"
-    "5. В конце можно задать короткий уточняющий вопрос или предложить "
-    "разобрать тему глубже, если это уместно."
+    "Если тебе прислали фото с задачей — внимательно прочитай текст "
+    "на изображении и реши её пошагово."
 )
 
 # ================== ПАМЯТЬ ДИАЛОГОВ ==================
@@ -54,17 +44,15 @@ def trim_history(chat_id, limit=20):
 
 # ================== ЗАПРОС К НЕЙРОСЕТИ ==================
 
-def ask_ai(chat_id, user_text, image_b64=None):
+def ask_ai(chat_id, user_text, image_url=None):
     msgs = get_history(chat_id)
 
-    if image_b64:
+    if image_url:
         msgs.append({
             "role": "user",
             "content": [
                 {"type": "text", "text": user_text},
-                {"type": "image_url", "image_url": {
-                    "url": f"data:image/jpeg;base64,{image_b64}"
-                }},
+                {"type": "image_url", "image_url": {"url": image_url}},
             ],
         })
     else:
@@ -106,23 +94,18 @@ def handle_text(message):
 def handle_photo(message):
     try:
         file_info = tg.get_file(message.photo[-1].file_id)
-        downloaded = tg.download_file(file_info.file_path)
+        # Прямая ссылка на файл Telegram — её понимают vision-модели
+        image_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_info.file_path}"
 
-        with open("temp.jpg", "wb") as f:
-            f.write(downloaded)
-        with open("temp.jpg", "rb") as f:
-            img_b64 = base64.b64encode(f.read()).decode()
-
-        caption = message.caption or "Что на этом изображении?"
-        answer = ask_ai(message.chat.id, caption, image_b64=img_b64)
+        caption = message.caption or "Что на этом изображении? Реши, если это задача."
+        tg.reply_to(message, "Думаю над фото... 🤔")
+        answer = ask_ai(message.chat.id, caption, image_url=image_url)
         tg.reply_to(message, answer)
     except Exception as e:
-        tg.reply_to(message, "Не смог разобрать фото 😔")
+        tg.reply_to(message, f"Не смог разобрать фото. Причина: {e}")
         print("PHOTO ERROR:", e)
 
-# ================== ФИКТИВНЫЙ HTTP-СЕРВЕР ДЛЯ RENDER ==================
-# Render (Web Service) требует открытый порт — иначе убивает процесс по таймауту.
-# Открываем порт на всё время жизни бота — больше ничего не нужно.
+# ================== HTTP-СЕРВЕР ДЛЯ RENDER ==================
 
 def run_dummy_server():
     port = int(os.environ.get("PORT", 10000))
