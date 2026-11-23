@@ -1,11 +1,17 @@
 import os
 import base64
+import requests
 import telebot
 from openai import OpenAI
 
 # ================== НАСТРОЙКИ ==================
 
-BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")   # токен бота — только в переменных окружения Render
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")   # токен бота — из переменных окружения Render
+
+tg = telebot.TeleBot(BOT_TOKEN)
+
+# Принудительно удаляем вебхук, чтобы не было конфликта 409
+requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook")
 
 # Pollinations: бесплатный API без ключей.
 # OpenAI-клиенту нужен какой-то api_key, поэтому ставим заглушку.
@@ -13,9 +19,7 @@ ai = OpenAI(
     api_key="not-needed",
     base_url="https://text.pollinations.ai/openai"
 )
-MODEL = "openai"   # у Pollinations модель так и называется; vision (картинки) поддерживается
-
-tg = telebot.TeleBot(BOT_TOKEN)
+MODEL = "openai"   # у Pollinations модель так и называется; поддерживает и текст, и картинки
 
 SYSTEM_PROMPT = (
     "Ты — дружелюбный и живой помощник. Отвечай на том языке, "
