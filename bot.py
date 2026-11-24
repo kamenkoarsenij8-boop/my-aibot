@@ -25,7 +25,8 @@ SYSTEM_PROMPT = (
     "Ты — дружелюбный и живой помощник. Отвечай на том языке, "
     "на котором пишет пользователь.\n"
     "Если тебе прислали фото с задачей — внимательно прочитай текст "
-    "на изображении и реши её пошагово."
+    "на изображении и реши её пошагово.\n"
+    "Объясняй подробно, простыми словами, с примерами и эмодзи."
 )
 
 # ================== ПАМЯТЬ ДИАЛОГОВ ==================
@@ -87,8 +88,9 @@ def handle_text(message):
         answer = ask_ai(message.chat.id, message.text)
         tg.reply_to(message, answer)
     except Exception as e:
-        tg.reply_to(message, f"Ошибка: {e}")
-        print("TEXT ERROR:", e)
+        error_msg = f"💥 Критическая ошибка: {type(e).__name__}: {str(e)}"
+        tg.reply_to(message, error_msg)
+        print(error_msg)
 
 @tg.message_handler(content_types=["photo"])
 def handle_photo(message):
@@ -102,8 +104,9 @@ def handle_photo(message):
         answer = ask_ai(message.chat.id, caption, image_url=image_url)
         tg.reply_to(message, answer)
     except Exception as e:
-        tg.reply_to(message, f"Не смог разобрать фото. Причина: {e}")
-        print("PHOTO ERROR:", e)
+        error_msg = f"💥 Ошибка с фото: {type(e).__name__}: {str(e)}"
+        tg.reply_to(message, error_msg)
+        print(error_msg)
 
 # ================== HTTP-СЕРВЕР ДЛЯ RENDER ==================
 
